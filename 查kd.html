@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户搜索与详情</title>
+  <!-- 引入Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- 配置Tailwind自定义主题 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#36CFC9',
+            dark: '#1D2129',
+            'dark-light': '#272E3B',
+            'gray-custom': '#86909C',
+            success: '#52C41A',
+            warning: '#FAAD14',
+            danger: '#FF4D4F',
+            'honor-gold': '#FFD700',
+            'honor-purple': '#9370DB',
+            'honor-red': '#FF4500'
+          },
+          fontFamily: {
+            inter: ['Inter', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <!-- 自定义工具类 -->
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .card-shadow {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      }
+      .text-gradient {
+        background-clip: text;
+        -webkit-background-clip: text;
+        color: transparent;
+      }
+      .animate-float {
+        animation: float 3s ease-in-out infinite;
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .avatar-frame {
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        background: linear-gradient(135deg, #165DFF, #36CFC9) border-box;
+        -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: destination-out;
+        mask-composite: exclude;
+      }
+      .honor-glow {
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+      }
+    }
+    
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0px); }
+    }
+  </style>
+</head>
+
+<body class="bg-dark text-white font-inter min-h-screen flex flex-col">
+  <!-- 页面头部 -->
+  <header class="bg-dark-light/80 backdrop-blur-md border-b border-gray-700/30 sticky top-0 z-50 transition-all duration-300">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <h1 class="text-xl md:text-2xl font-bold text-gradient bg-gradient-to-r from-primary to-secondary">
+        <i class="fa fa-search mr-2"></i>和平查KD-By:Lun.
+      </h1>
+      <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-700/50 transition-colors">
+        <i class="fa fa-moon-o"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- 主要内容区 -->
+  <main class="flex-grow container mx-auto px-4 py-6">
+    <!-- 搜索区域 -->
+    <section id="search-section" class="mb-8 transition-all duration-500">
+      <div class="bg-dark-light rounded-xl p-4 md:p-6 card-shadow">
+        <h2 class="text-lg md:text-xl font-semibold mb-4">搜索用户</h2>
+        <div class="flex flex-col md:flex-row gap-3">
+          <div class="relative flex-grow">
+            <input 
+              type="text" 
+              id="search-input" 
+              placeholder="输入用户昵称..." 
+              class="w-full bg-dark border border-gray-700 rounded-lg px-4 py-3 pl-10 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+            >
+            <i class="fa fa-user-circle absolute left-3 top-1/2 -translate-y-1/2 text-gray-custom"></i>
+          </div>
+          <button 
+            id="search-button" 
+            class="bg-primary hover:bg-primary/90 text-white font-medium rounded-lg px-6 py-3 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <i class="fa fa-search"></i>
+            <span>搜索</span>
+          </button>
+        </div>
+        
+        <!-- 搜索结果统计 -->
+        <div id="search-stats" class="mt-4 text-sm text-gray-custom hidden">
+          <p>找到 <span id="result-count" class="text-secondary font-medium">0</span> 个匹配结果</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 加载状态 -->
+    <div id="loading" class="fixed inset-0 bg-dark/80 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+      <div class="bg-dark-light p-6 rounded-xl flex flex-col items-center gap-4">
+        <div class="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+        <p class="text-gray-300">加载中...</p>
+      </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error-message" class="bg-danger/10 border border-danger/30 rounded-lg p-4 mb-6 hidden">
+      <div class="flex items-start gap-3">
+        <i class="fa fa-exclamation-circle text-danger mt-0.5"></i>
+        <p id="error-text" class="text-danger text-sm">发生错误，请稍后重试</p>
+      </div>
+    </div>
+
+    <!-- 用户列表区域 -->
+    <section id="user-list-section" class="mb-8 transition-all duration-500">
+      <h2 class="text-lg md:text-xl font-semibold mb-4">搜索结果</h2>
+      <div id="user-list" class="grid grid-cols-1 gap-4">
+        <!-- 用户列表将通过JavaScript动态生成 -->
+        <div class="flex items-center justify-center py-12 text-gray-custom">
+          <p>请输入昵称进行搜索</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 用户详情区域 -->
+    <section id="user-detail-section" class="mb-8 hidden transition-all duration-500 opacity-0 transform translate-y-4">
+      <div class="flex items-center gap-2 mb-4">
+        <button id="back-button" class="p-2 rounded-full hover:bg-dark-light transition-colors">
+          <i class="fa fa-arrow-left"></i>
+        </button>
+        <h2 class="text-lg md:text-xl font-semibold">用户详情</h2>
+      </div>
+      
+      <!-- 用户基本信息 -->
+      <div class="bg-dark-light rounded-xl p-4 md:p-6 mb-6 card-shadow">
+        <div class="flex flex-col md:flex-row gap-6">
+          <!-- 头像区域 -->
+          <div class="flex flex-col items-center">
+            <div class="relative mb-3">
+              <img id="user-avatar" src="" alt="用户头像" class="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover">
+              <div class="avatar-frame"></div>
+            </div>
+            <span id="user-sex" class="text-sm px-3 py-1 rounded-full bg-primary/10 text-primary"></span>
+          </div>
+          
+          <!-- 基本信息 -->
+          <div class="flex-grow">
+            <div class="flex flex-col md:flex-row md:items-end gap-2 mb-3">
+              <h3 id="user-roleName" class="text-2xl md:text-3xl font-bold"></h3>
+              <span id="user-roleDesc" class="bg-gray-700/50 text-gray-300 text-sm px-2 py-1 rounded"></span>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <p class="text-gray-custom text-sm mb-1">营地昵称</p>
+                <p id="user-nickname" class="font-medium"></p>
+              </div>
+              <div>
+                <p class="text-gray-custom text-sm mb-1">营地编号</p>
+                <p id="user-userId" class="font-medium"></p>
+              </div>
+              <div>
+                <p class="text-gray-custom text-sm mb-1">营地ID</p>
+                <p id="user-roleId" class="font-medium"></p>
+              </div>
+              <div>
+                <p class="text-gray-custom text-sm mb-1">服务器</p>
+                <p id="user-serverName" class="font-medium"></p>
+              </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-3">
+              <div class="flex items-center gap-1.5 bg-primary/10 px-3 py-1.5 rounded-lg">
+                <i class="fa fa-signal text-primary"></i>
+                <span id="user-level" class="text-sm"></span>
+              </div>
+              <div class="flex items-center gap-1.5 bg-secondary/10 px-3 py-1.5 rounded-lg">
+                <i class="fa fa-trophy text-secondary"></i>
+                <span id="user-honorLevel" class="text-sm"></span>
+              </div>
+              <div class="flex items-center gap-1.5 bg-success/10 px-3 py-1.5 rounded-lg">
+                <i class="fa fa-map-marker text-success"></i>
+                <span id="user-areaName" class="text-sm"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      
+      <!-- 赛季信息 -->
+      <div class="bg-dark-light rounded-xl p-4 md:p-6 mb-6 card-shadow">
+        <h3 class="text-lg font-semibold mb-4 flex items-center">
+          <i class="fa fa-calendar-check-o text-primary mr-2"></i>
+          当前赛季
+        </h3>
+        <div class="flex flex-col md:flex-row md:items-center gap-4">
+
+            <!-- 段位图标和名称 -->
+            <div class="flex items-center gap-3">
+              <img id="rank-icon" src="" alt="段位图标" class="w-14 h-14 object-contain">
+              <div>
+                <p id="rank-name" class="font-semibold text-lg"></p>
+                <p id="season-name" class="text-sm text-gray-custom"></p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 赛季进度 -->
+          <div class="flex-grow">
+            <div class="flex justify-between mb-1">
+              <p class="text-sm">赛季进度</p>
+              <p class="text-sm font-medium">
+                <span id="season-current-score"></span> / <span id="season-levelup-score"></span>
+              </p>
+            </div>
+            <div class="w-full bg-gray-700/50 rounded-full h-2.5">
+              <div id="season-progress" class="bg-gradient-to-r from-primary to-secondary h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+            <p class="text-xs text-gray-custom mt-1">
+              距离下一段位还需 <span id="score-remaining" class="text-secondary font-medium">0</span> 分
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 战绩数据 -->
+      <div class="bg-dark-light rounded-xl p-4 md:p-6 mb-6 card-shadow">
+        <h3 class="text-lg font-semibold mb-4 flex items-center">
+          <i class="fa fa-bar-chart text-primary mr-2"></i>
+          游戏战绩
+        </h3>
+        
+        <!-- 战绩类型标签页 -->
+        <div class="border-b border-gray-700 mb-4">
+          <div class="flex overflow-x-auto scrollbar-hide gap-1 md:gap-4">
+            <button class="record-tab active whitespace-nowrap px-4 py-2 text-sm font-medium text-primary border-b-2 border-primary" data-tab="main">
+              主要战绩
+            </button>
+            <button class="record-tab whitespace-nowrap px-4 py-2 text-sm font-medium text-gray-custom hover:text-gray-300" data-tab="escape">
+              逃生战绩
+            </button>
+            <button class="record-tab whitespace-nowrap px-4 py-2 text-sm font-medium text-gray-custom hover:text-gray-300" data-tab="vsteam">
+              团竞战绩
+            </button>
+          </div>
+        </div>
+        
+        <!-- 主要战绩 -->
+        <div id="main-record" class="record-content">
+          <!-- 游戏模式筛选器 -->
+          <div class="mb-4">
+            <p class="text-sm text-gray-custom mb-2">游戏类型:</p>
+            <div class="flex flex-wrap gap-2 mb-4">
+              <button class="type-filter active px-3 py-1 text-sm rounded-full bg-primary text-white" data-type="经典模式">
+                经典模式
+              </button>
+              <button class="type-filter px-3 py-1 text-sm rounded-full bg-gray-700/50 hover:bg-gray-600/50" data-type="创意工坊">
+                创意工坊
+              </button>
+              <button class="type-filter px-3 py-1 text-sm rounded-full bg-gray-700/50 hover:bg-gray-600/50" data-type="全部">
+                全部模式
+              </button>
+            </div>
+            
+            <p class="text-sm text-gray-custom mb-2">组队模式:</p>
+            <div class="flex flex-wrap gap-2">
+              <button class="mode-filter active px-3 py-1 text-sm rounded-full bg-primary text-white" data-mode="4">
+                四排
+              </button>
+              <button class="mode-filter px-3 py-1 text-sm rounded-full bg-gray-700/50 hover:bg-gray-600/50" data-mode="2">
+                双排
+              </button>
+              <button class="mode-filter px-3 py-1 text-sm rounded-full bg-gray-700/50 hover:bg-gray-600/50" data-mode="1">
+                单排
+              </button>
+              <button class="mode-filter px-3 py-1 text-sm rounded-full bg-gray-700/50 hover:bg-gray-600/50" data-mode="all">
+                全部
+              </button>
+            </div>
+          </div>
+          
+          <div id="main-record-container" class="space-y-6">
+            <!-- 主要战绩内容将通过JavaScript动态生成 -->
+          </div>
+        </div>
+        
+        <!-- 逃生战绩 -->
+        <div id="escape-record" class="record-content hidden">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">场数</p>
+              <p id="escape-games" class="text-2xl font-bold text-primary"></p>
+            </div>
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">K/D</p>
+              <p id="escape-kd" class="text-2xl font-bold text-primary"></p>
+            </div>
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">撤离率</p>
+              <p id="escape-escape-rate" class="text-2xl font-bold text-primary"></p>
+            </div>
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">赛季总收益</p>
+              <p id="escape-total-income" class="text-2xl font-bold text-primary"></p>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">淘汰玩家数</p>
+              <p id="escape-players-eliminated" class="text-xl font-medium"></p>
+            </div>
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">淘汰匪徒数</p>
+              <p id="escape-bandits-eliminated" class="text-xl font-medium"></p>
+            </div>
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">淘汰怪物数</p>
+              <p id="escape-monsters-eliminated" class="text-xl font-medium"></p>
+            </div>
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">单局最高收益</p>
+              <p id="escape-max-income" class="text-xl font-medium"></p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 团竞战绩 -->
+        <div id="vsteam-record" class="record-content hidden">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">场数</p>
+              <p id="vsteam-games" class="text-2xl font-bold text-primary"></p>
+            </div>
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">获胜</p>
+              <p id="vsteam-wins" class="text-2xl font-bold text-primary"></p>
+            </div>
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">胜率</p>
+              <p id="vsteam-win-rate" class="text-2xl font-bold text-primary"></p>
+            </div>
+            <div class="bg-dark p-4 rounded-lg">
+              <p class="text-gray-custom text-sm mb-1">淘汰数</p>
+              <p id="vsteam-eliminations" class="text-2xl font-bold text-primary"></p>
+            </div>
+          </div>
+          
+          <div class="bg-dark p-4 rounded-lg">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-gray-custom">团竞等级</p>
+              <p id="vsteam-level" class="font-medium"></p>
+            </div>
+            <div class="w-full bg-gray-700/50 rounded-full h-2.5">
+              <div id="vsteam-progress" class="bg-gradient-to-r from-primary to-secondary h-2.5 rounded-full" style="width: 0%"></div>
+            </div>
+            <p class="text-xs text-gray-custom mt-1 text-right">
+              <span id="vsteam-current-exp"></span> / <span id="vsteam-levelup-exp"></span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      
+      <!-- 成就标志区域 -->
+      <div class="bg-dark-light rounded-xl p-4 md:p-6 mb-6 card-shadow">
+        <h3 class="text-lg font-semibold mb-6 flex items-center">
+          <i class="fa fa-trophy text-honor-gold mr-2"></i>
+          成就标志
+        </h3>
+        
+        <!-- 最高段位 -->
+        <div class="mb-8">
+          <p class="text-sm text-gray-custom mb-3">最高段位记录</p>
+          <div class="flex flex-col md:flex-row md:items-center gap-4 bg-dark rounded-xl p-4 honor-glow">
+            <img id="highest-div-icon" src="" alt="最高段位图标" class="w-16 h-16 md:w-20 md:h-20 object-contain">
+            <div>
+              <p id="highest-div-name" class="text-xl font-bold text-honor-gold"></p>
+              <p class="text-sm text-gray-custom">段位阶级: <span id="highest-div-class" class="text-white"></span></p>
+              <p class="text-sm text-gray-custom">达成次数: <span id="highest-div-times" class="text-white"></span> 次</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 各类印记 -->
+        <div>
+          <p class="text-sm text-gray-custom mb-3">印记收集</p>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- 王牌印记 -->
+            <div class="bg-dark rounded-xl p-4 text-center hover:scale-105 transition-transform">
+              <div class="inline-flex items-center justify-center w-16 h-16 mb-2 rounded-full bg-honor-gold/10">
+                <img id="wangpai-icon" src="" alt="王牌印记图标" class="w-10 h-10 object-contain">
+              </div>
+              <p id="wangpai-name" class="font-medium text-honor-gold"></p>
+              <p id="wangpai-level-name" class="text-sm text-gray-custom mt-1"></p>
+            </div>
+            
+            <!-- 卓越印记 -->
+            <div class="bg-dark rounded-xl p-4 text-center hover:scale-105 transition-transform">
+              <div class="inline-flex items-center justify-center w-16 h-16 mb-2 rounded-full bg-primary/10">
+                <img id="zywp-icon" src="" alt="卓越印记图标" class="w-10 h-10 object-contain">
+              </div>
+              <p id="zywp-name" class="font-medium text-primary"></p>
+              <p id="zywp-times" class="text-sm text-gray-custom mt-1">
+                <span id="zywp-count"></span> 次
+              </p>
+            </div>
+            
+            <!-- 传奇印记 -->
+            <div class="bg-dark rounded-xl p-4 text-center hover:scale-105 transition-transform">
+              <div class="inline-flex items-center justify-center w-16 h-16 mb-2 rounded-full bg-honor-purple/10">
+                <img id="cqwp-icon" src="" alt="传奇印记图标" class="w-10 h-10 object-contain">
+              </div>
+              <p id="cqwp-name" class="font-medium text-honor-purple"></p>
+              <p id="cqwp-times" class="text-sm text-gray-custom mt-1">
+                <span id="cqwp-count"></span> 次
+              </p>
+            </div>
+            
+            <!-- 绝世印记 -->
+            <div class="bg-dark rounded-xl p-4 text-center hover:scale-105 transition-transform">
+              <div class="inline-flex items-center justify-center w-16 h-16 mb-2 rounded-full bg-honor-red/10">
+                <img id="jswp-icon" src="" alt="绝世印记图标" class="w-10 h-10 object-contain">
+              </div>
+              <p id="jswp-name" class="font-medium text-honor-red"></p>
+              <p id="jswp-times" class="text-sm text-gray-custom mt-1">
+                <span id="jswp-count"></span> 次
+              </p>
+            </div>
+          </div>
+          
+          <!-- 点赞数 -->
+          <div class="mt-6 bg-dark rounded-xl p-4 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <img id="like-icon" src="" alt="点赞图标" class="w-6 h-6 object-contain">
+            </div>
+            <div>
+              <p class="text-sm text-gray-custom">总获赞数</p>
+              <p id="like-times" class="text-2xl font-bold text-primary"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="bg-dark-light border-t border-gray-700/30 py-4">
+    <div class="container mx-auto px-4 text-center text-gray-custom text-sm">
+      <p>© 2025 和平精英KD查询系统-By：Lun. | 数据来源: 和平精英 | 如有侵权请联系lun.os@foxmail.com</p>
+    </div>
+  </footer>
+
+  <script>
+    // 全局变量
+    let currentKeyword = '';
+    let currentRoleId = '';
+    let allMainRecords = []; // 存储所有主要战绩数据
+    let currentModeFilter = '4'; // 默认显示四排
+    let currentTypeFilter = '经典模式'; // 默认显示经典模式
+    
+    // DOM元素
+    const searchInput = document.getElementById('search-input');
+    const searchButton = document.getElementById('search-button');
+    const userList = document.getElementById('user-list');
+    const userListSection = document.getElementById('user-list-section');
+    const userDetailSection = document.getElementById('user-detail-section');
+    const backButton = document.getElementById('back-button');
+    const loading = document.getElementById('loading');
+    const errorMessage = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+    const searchStats = document.getElementById('search-stats');
+    const resultCount = document.getElementById('result-count');
+    const recordTabs = document.querySelectorAll('.record-tab');
+    const recordContents = document.querySelectorAll('.record-content');
+    const modeFilters = document.querySelectorAll('.mode-filter');
+    const typeFilters = document.querySelectorAll('.type-filter');
+    
+    // 初始化事件监听
+    function initEventListeners() {
+      // 搜索按钮点击事件
+      searchButton.addEventListener('click', () => {
+        const keyword = searchInput.value.trim();
+        if (keyword) {
+          searchUsers(keyword);
+        } else {
+          showError('请输入搜索关键词');
+        }
+      });
+      
+      // 回车键搜索
+      searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          searchButton.click();
+        }
+      });
+      
+      // 返回按钮点击事件
+      backButton.addEventListener('click', () => {
+        showUserList();
+      });
+      
+      // 战绩标签页切换
+      recordTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          // 移除所有标签的active类
+          recordTabs.forEach(t => {
+            t.classList.remove('active', 'text-primary', 'border-primary');
+            t.classList.add('text-gray-custom');
+          });
+          
+          // 给当前标签添加active类
+          tab.classList.add('active', 'text-primary', 'border-primary');
+          tab.classList.remove('text-gray-custom');
+          
+          // 隐藏所有内容
+          recordContents.forEach(content => {
+            content.classList.add('hidden');
+          });
+          
+          // 显示对应内容
+          const tabId = tab.getAttribute('data-tab');
+          document.getElementById(`${tabId}-record`).classList.remove('hidden');
+        });
+      });
+      
+      // 游戏模式筛选器事件
+      modeFilters.forEach(filter => {
+        filter.addEventListener('click', () => {
+          // 更新筛选器样式
+          modeFilters.forEach(f => {
+            f.classList.remove('active', 'bg-primary', 'text-white');
+            f.classList.add('bg-gray-700/50', 'hover:bg-gray-600/50');
+          });
+          
+          filter.classList.add('active', 'bg-primary', 'text-white');
+          filter.classList.remove('bg-gray-700/50', 'hover:bg-gray-600/50');
+          
+          // 保存当前筛选模式并更新显示
+          currentModeFilter = filter.getAttribute('data-mode');
+          filterMainRecords();
+        });
+      });
+      
+      // 游戏类型筛选器事件
+      typeFilters.forEach(filter => {
+        filter.addEventListener('click', () => {
+          // 更新筛选器样式
+          typeFilters.forEach(f => {
+            f.classList.remove('active', 'bg-primary', 'text-white');
+            f.classList.add('bg-gray-700/50', 'hover:bg-gray-600/50');
+          });
+          
+          filter.classList.add('active', 'bg-primary', 'text-white');
+          filter.classList.remove('bg-gray-700/50', 'hover:bg-gray-600/50');
+          
+          // 保存当前筛选类型并更新显示
+          currentTypeFilter = filter.getAttribute('data-type');
+          filterMainRecords();
+        });
+      });
+    }
+    
+    // 搜索用户
+    function searchUsers(keyword) {
+      currentKeyword = keyword;
+      showLoading();
+      hideError();
+      
+      // 构建表单数据
+      const formData = new FormData();
+      formData.append('type', 'user');
+      formData.append('keyword', keyword);
+      formData.append('gameId', '20004');
+      formData.append('userId', '1001502719');
+      formData.append('token', 'YacTA5wn');
+      formData.append('size', '20');
+      formData.append('page', '1');
+      
+      // 发送请求
+      fetch('https://formal.api.gp.qq.com/search/getresultbytypev2', {
+        method: 'POST',
+        headers: {
+          'User-Agent': 'okhttp/3.12.1',
+          'Connection': 'Keep-Alive',
+          'Accept-Encoding': 'gzip',
+        },
+        body: new URLSearchParams(formData)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        hideLoading();
+        if (data.result === 0 && data.data && data.data.user && data.data.user.list) {
+          displayUserList(data.data.user.list);
+          resultCount.textContent = data.data.user.totalNums;
+          searchStats.classList.remove('hidden');
+        } else {
+          showError('未找到匹配的用户');
+          userList.innerHTML = `<div class="flex items-center justify-center py-12 text-gray-custom"><p>未找到匹配的用户</p></div>`;
+        }
+      })
+      .catch(error => {
+        hideLoading();
+        console.error('搜索用户出错:', error);
+        showError('搜索失败，请稍后重试');
+        userList.innerHTML = `<div class="flex items-center justify-center py-12 text-gray-custom"><p>搜索失败，请稍后重试</p></div>`;
+      });
+    }
+    
+    // 显示用户列表
+    function displayUserList(users) {
+      if (users.length === 0) {
+        userList.innerHTML = `<div class="flex items-center justify-center py-12 text-gray-custom"><p>未找到匹配的用户</p></div>`;
+        return;
+      }
+      
+      userList.innerHTML = '';
+      
+      users.forEach(user => {
+        const userCard = document.createElement('div');
+        userCard.className = 'bg-dark-light rounded-xl p-4 flex items-center gap-4 hover:bg-dark-light/80 transition-all cursor-pointer transform hover:translate-x-1';
+        userCard.innerHTML = `
+          <div class="relative">
+            <img src="${user.avatar || 'https://picsum.photos/100/100'}" alt="${user.nickname}的头像" class="w-14 h-14 rounded-full object-cover">
+            <div class="avatar-frame"></div>
+          </div>
+          <div class="flex-grow">
+            <div class="flex items-center gap-2 mb-1">
+              <h3 class="font-semibold">${user.roleName}</h3>
+              <span class="text-xs bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded">${user.roleDesc}</span>
+            </div>
+            <p class="text-sm text-gray-custom">昵称: ${user.nickname}</p>
+            <p class="text-sm text-gray-custom mt-1">ID: ${user.userId}</p>
+          </div>
+          <div class="p-2 rounded-full bg-primary/10 text-primary">
+            <i class="fa fa-angle-right"></i>
+          </div>
+        `;
+        
+        // 绑定点击事件，确保能正确触发
+        userCard.addEventListener('click', function() {
+          // 添加日志以便调试
+          console.log('用户卡片被点击，角色ID:', user.roleId);
+          currentRoleId = user.roleId;
+          getUserDetail(user.roleId, user);
+        });
+        
+        userList.appendChild(userCard);
+      });
+    }
+    
+    // 获取用户详情
+    function getUserDetail(roleId, userPreview) {
+      // 添加日志以便调试
+      console.log('开始获取用户详情，角色ID:', roleId);
+      
+      showLoading();
+      hideError();
+      
+      // 构建表单数据
+      const formData = new FormData();
+      formData.append('gameId', '20004');
+      formData.append('roleId', roleId);
+      formData.append('count', '5');
+      formData.append('userId', '1001502719');
+      formData.append('token', 'YacTA5wn');
+      
+      // 发送请求
+      fetch('https://formal.api.gp.qq.com/game/rolecard3', {
+        method: 'POST',
+        headers: {
+          'User-Agent': 'okhttp/3.12.1',
+          'Connection': 'Keep-Alive',
+          'Accept-Encoding': 'gzip',
+        },
+        body: new URLSearchParams(formData)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data.result === 0 && data.data && data.data.roleCard) {
+          displayUserDetail(data.data.roleCard, userPreview);
+          // 先显示详情页，再获取成就信息
+          showUserDetail();
+          // 获取并显示成就信息
+          getHonorInfo(roleId);
+        } else {
+          hideLoading();
+          showError('无法获取用户详情');
+        }
+      })
+      .catch(error => {
+        hideLoading();
+        console.error('获取用户详情出错:', error);
+        showError('获取用户详情失败，请稍后重试');
+      });
+    }
+    
+    // 获取成就标志信息
+    function getHonorInfo(roleId) {
+      // 构建表单数据
+      const formData = new FormData();
+      formData.append('openId', '25C7CFBC025765DB8F9AD9667BAFB51E');
+      formData.append('cGzip', '1');
+      formData.append('cDevicePPI', '360');
+      formData.append('cGameId', '20004');
+      formData.append('cDeviceImei', 'a1789ddedc0b2fa8116ac06c100013c19810');
+      formData.append('gameOpenId', '4DD56E3972AEFA6A51B97F0E8BC92903');
+      formData.append('cDeviceScreenHeight', '2560');
+      formData.append('cDeviceCPU', 'arm64-v8a$x86_64');
+      formData.append('cDeviceSP', '');
+      formData.append('cSystemVersionCode', '32');
+      formData.append('cWifiMac', '');
+      formData.append('cWifiSsid', '');
+      formData.append('cDeviceNet', 'WIFI');
+      formData.append('cClientVersionCode', '2102091464');
+      formData.append('cDeviceKey', '5b1947854e070d29');
+      formData.append('gameId', '20004');
+      formData.append('cChannelId', '2');
+      formData.append('cDeviceMem', '127991');
+      formData.append('roleId', roleId);
+      formData.append('userId', '1001502719');
+      formData.append('cDeviceRom', 'emulator');
+      formData.append('cDeviceMac', '');
+      formData.append('token', 'YacTA5wn');
+      formData.append('cCurrentGameId', '20004');
+      formData.append('cRand', new Date().getTime());
+      formData.append('cDeviceScreenWidth', '1440');
+      formData.append('cDeviceModel', '22041216C');
+      formData.append('pf', 'desktop_m_qq-10000144-android-2002-');
+      formData.append('cClientVersionName', '3.32.2.1453');
+      formData.append('cSystem', 'android');
+      formData.append('cDeviceId', 'a1789ddedc0b2fa8116ac06c100013c19810');
+      formData.append('cSystemVersionName', '12');
+      formData.append('cDeviceImsi', 'a1789ddedc0b2fa8116ac06c100013c19810');
+      
+      // 发送请求
+      fetch('https://formal.api.gp.qq.com/play/gethonorinfo', {
+        method: 'POST',
+        headers: {
+          'User-Agent': 'okhttp/3.12.1',
+          'Connection': 'Keep-Alive',
+          'Accept-Encoding': 'gzip',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams(formData)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        hideLoading();
+        if (data.result === 0 && data.data) {
+          displayHonorInfo(data.data);
+        } else {
+          showError('无法获取成就信息');
+        }
+      })
+      .catch(error => {
+        hideLoading();
+        console.error('获取成就信息出错:', error);
+        showError('获取成就信息失败，但不影响查看其他用户信息');
+      });
+    }
+    
+    // 显示成就标志信息
+    function displayHonorInfo(honorData) {
+      // 最高段位信息
+      document.getElementById('highest-div-icon').src = honorData.highestDivUrl || 'https://picsum.photos/200/200';
+      document.getElementById('highest-div-name').textContent = honorData.highestDivName || '未获取';
+      document.getElementById('highest-div-class').textContent = honorData.highestDivClass || '未知';
+      document.getElementById('highest-div-times').textContent = honorData.highestDivTimes || '0';
+      
+      // 王牌印记
+      document.getElementById('wangpai-icon').src = honorData.wangpaiIcon || 'https://picsum.photos/100/100';
+      document.getElementById('wangpai-name').textContent = honorData.wangpaiName || '王牌印记';
+      document.getElementById('wangpai-level-name').textContent = honorData.wangpaiLevelName || '0次';
+      
+      // 卓越印记
+      document.getElementById('zywp-icon').src = honorData.zywpIcon || 'https://picsum.photos/100/100';
+      document.getElementById('zywp-name').textContent = honorData.zywpName || '卓越印记';
+      document.getElementById('zywp-count').textContent = honorData.zywpTimes || '0';
+      
+      // 传奇印记
+      document.getElementById('cqwp-icon').src = honorData.cqwpIcon || 'https://picsum.photos/100/100';
+      document.getElementById('cqwp-name').textContent = honorData.cqwpName || '传奇印记';
+      document.getElementById('cqwp-count').textContent = honorData.cqwpTimes || '0';
+      
+      // 绝世印记
+      document.getElementById('jswp-icon').src = honorData.jswpIcon || 'https://picsum.photos/100/100';
+      document.getElementById('jswp-name').textContent = honorData.jswpName || '绝世印记';
+      document.getElementById('jswp-count').textContent = honorData.jswpTimes || '0';
+      
+      // 点赞数
+      document.getElementById('like-icon').src = honorData.likeIcon || 'https://picsum.photos/100/100';
+      document.getElementById('like-times').textContent = honorData.likeTimes || '0';
+    }
+    
+    // 显示用户详情
+    function displayUserDetail(roleCard, userPreview) {
+      // 基本信息
+      document.getElementById('user-avatar').src = userPreview.avatar || 'https://picsum.photos/200/200';
+      document.getElementById('user-roleName').textContent = roleCard.roleName || '未知角色名';
+      document.getElementById('user-roleDesc').textContent = roleCard.roleJob || userPreview.roleDesc || '未知等级';
+      document.getElementById('user-nickname').textContent = userPreview.nickname || '未知昵称';
+      document.getElementById('user-userId').textContent = roleCard.userId || '未知';
+      document.getElementById('user-roleId').textContent = roleCard.roleId || '未知';
+      document.getElementById('user-areaName').textContent = roleCard.serverName || '未知';
+      document.getElementById('user-level').textContent = `等级: ${roleCard.level || '未知'}`;
+      document.getElementById('user-honorLevel').textContent = `荣誉等级: ${roleCard.honorLevel || '未知'}`;
+      document.getElementById('user-serverName').textContent = roleCard.areaName || '未知区域';
+      
+      // 性别显示
+      const sexElement = document.getElementById('user-sex');
+      if (userPreview.sex === 1) {
+        sexElement.innerHTML = '<i class="fa fa-mars mr-1"></i> 男';
+        sexElement.className = 'text-sm px-3 py-1 rounded-full bg-blue-500/10 text-blue-400';
+      } else if (userPreview.sex === 2) {
+        sexElement.innerHTML = '<i class="fa fa-venus mr-1"></i> 女';
+        sexElement.className = 'text-sm px-3 py-1 rounded-full bg-pink-500/10 text-pink-400';
+      } else {
+        sexElement.innerHTML = '<i class="fa fa-question mr-1"></i> 未知';
+        sexElement.className = 'text-sm px-3 py-1 rounded-full bg-gray-500/10 text-gray-400';
+      }
+      
+      // 赛季信息
+      document.getElementById('season-icon').src = roleCard.seasonIcon || 'https://picsum.photos/100/100';
+      document.getElementById('season-name').textContent = roleCard.seasonName || '未知赛季';
+      
+      // 段位信息 - 使用divUrl参数显示段位图标
+      if (roleCard.mainRecord && roleCard.mainRecord.length > 0) {
+        const firstRecord = roleCard.mainRecord[0];
+        // 显示段位图标
+        document.getElementById('rank-icon').src = firstRecord.divUrl || 'https://picsum.photos/100/100';
+        document.getElementById('rank-name').textContent = firstRecord.divName || '未设置段位';
+        
+        // 赛季进度
+        const seasonProgress = document.getElementById('season-progress');
+        const seasonCurrentScore = document.getElementById('season-current-score');
+        const seasonLevelupScore = document.getElementById('season-levelup-score');
+        const scoreRemaining = document.getElementById('score-remaining');
+        
+        seasonProgress.style.width = `${firstRecord.levelProc || 0}%`;
+        seasonCurrentScore.textContent = firstRecord.currentScore || 0;
+        seasonLevelupScore.textContent = firstRecord.levelUpScore || 0;
+        
+        // 计算还需多少分升级
+        const remaining = (firstRecord.levelUpScore || 0) - (firstRecord.currentScore || 0);
+        scoreRemaining.textContent = remaining > 0 ? remaining : 0;
+      } else {
+        // 无战绩数据时的默认显示
+        document.getElementById('rank-icon').src = 'https://picsum.photos/100/100';
+        document.getElementById('rank-name').textContent = '暂无段位';
+        document.getElementById('season-progress').style.width = '0%';
+        document.getElementById('season-current-score').textContent = '0';
+        document.getElementById('season-levelup-score').textContent = '0';
+        document.getElementById('score-remaining').textContent = '0';
+      }
+      
+      // 保存所有主要战绩数据
+      allMainRecords = roleCard.mainRecord || [];
+      
+      // 筛选并显示主要战绩
+      filterMainRecords();
+      
+      // 逃生战绩
+      if (roleCard.escapeRecord && roleCard.escapeRecord.length > 0) {
+        const escapeData = roleCard.escapeRecord[0];
+        document.getElementById('escape-games').textContent = escapeData.pro[0].v.v || '0';
+        document.getElementById('escape-kd').textContent = escapeData.pro[1].v.v || '0';
+        document.getElementById('escape-max-income').textContent = escapeData.pro[2].v.v || '0';
+        document.getElementById('escape-total-income').textContent = escapeData.pro[3].v.v || '0';
+        document.getElementById('escape-escape-rate').textContent = escapeData.subPro[0].v.v || '0%';
+        document.getElementById('escape-players-eliminated').textContent = escapeData.subPro[1].v.v || '0';
+        document.getElementById('escape-bandits-eliminated').textContent = escapeData.subPro[2].v.v || '0';
+        document.getElementById('escape-monsters-eliminated').textContent = escapeData.subPro[3].v.v || '0';
+      } else {
+        // 清空逃生战绩
+        document.getElementById('escape-games').textContent = '0';
+        document.getElementById('escape-kd').textContent = '0';
+        document.getElementById('escape-max-income').textContent = '0';
+        document.getElementById('escape-total-income').textContent = '0';
+        document.getElementById('escape-escape-rate').textContent = '0%';
+        document.getElementById('escape-players-eliminated').textContent = '0';
+        document.getElementById('escape-bandits-eliminated').textContent = '0';
+        document.getElementById('escape-monsters-eliminated').textContent = '0';
+      }
+      
+      // 团竞战绩
+      if (roleCard.vsteamRecord && roleCard.vsteamRecord.length > 0) {
+        const vsteamData = roleCard.vsteamRecord[0];
+        document.getElementById('vsteam-games').textContent = vsteamData.pro[0].v.v || '0';
+        document.getElementById('vsteam-wins').textContent = vsteamData.pro[1].v.v || '0';
+        document.getElementById('vsteam-win-rate').textContent = vsteamData.pro[2].v.v || '0%';
+        document.getElementById('vsteam-eliminations').textContent = vsteamData.pro[3].v.v || '0';
+        document.getElementById('vsteam-level').textContent = vsteamData.levelName || '0';
+        document.getElementById('vsteam-current-exp').textContent = vsteamData.currentExp || '0';
+        document.getElementById('vsteam-levelup-exp').textContent = vsteamData.levelUpExp || '0';
+        document.getElementById('vsteam-progress').style.width = `${vsteamData.levelProc || 0}%`;
+      } else {
+        // 清空团竞战绩
+        document.getElementById('vsteam-games').textContent = '0';
+        document.getElementById('vsteam-wins').textContent = '0';
+        document.getElementById('vsteam-win-rate').textContent = '0%';
+        document.getElementById('vsteam-eliminations').textContent = '0';
+        document.getElementById('vsteam-level').textContent = '0';
+        document.getElementById('vsteam-current-exp').textContent = '0';
+        document.getElementById('vsteam-levelup-exp').textContent = '0';
+        document.getElementById('vsteam-progress').style.width = '0%';
+      }
+    }
+    
+    // 根据选择的模式和类型筛选主要战绩
+    function filterMainRecords() {
+      const mainRecordContainer = document.getElementById('main-record-container');
+      mainRecordContainer.innerHTML = '';
+      
+      // 根据当前筛选条件过滤战绩
+      let filteredRecords = allMainRecords;
+      
+      // 先过滤游戏类型
+      if (currentTypeFilter !== '全部') {
+        filteredRecords = filteredRecords.filter(record => 
+          record.class === currentTypeFilter
+        );
+      }
+      
+      // 再过滤组队模式
+      if (currentModeFilter !== 'all') {
+        filteredRecords = filteredRecords.filter(record => {
+          // 从标题中判断是哪种模式
+          return record.title.includes(currentModeFilter === '1' ? '单排' : 
+                 currentModeFilter === '2' ? '双排' : '四排');
+        });
+      }
+      
+      // 只显示有数据的记录
+      const validRecords = filteredRecords.filter(record => 
+        record.pro && record.pro[0] && record.pro[0].v.v > 0
+      );
+      
+      if (validRecords.length > 0) {
+        validRecords.forEach(record => {
+          const recordCard = document.createElement('div');
+          recordCard.className = 'bg-dark rounded-xl p-4 transition-all hover:card-shadow';
+          
+          let proHtml = '';
+          record.pro.forEach(item => {
+            proHtml += `
+              <div class="text-center">
+                <p class="text-2xl font-bold text-primary">${item.v.v}</p>
+                <p class="text-sm text-gray-custom">${item.k}</p>
+              </div>
+            `;
+          });
+          
+          let subProHtml = '';
+          record.subPro.forEach((item, index) => {
+            if (index % 4 === 0) {
+              subProHtml += '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">';
+            }
+            
+            subProHtml += `
+              <div class="bg-dark-light/50 p-2 rounded-lg">
+                <p class="text-xs text-gray-custom">${item.k}</p>
+                <p class="text-sm font-medium">${item.v.v}</p>
+              </div>
+            `;
+            
+            if ((index + 1) % 4 === 0 || index === record.subPro.length - 1) {
+              subProHtml += '</div>';
+            }
+          });
+          
+          recordCard.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+              <h4 class="font-semibold">${record.title} <span class="text-xs text-gray-custom ml-2">${record.class}</span></h4>
+              <div class="flex items-center gap-2">
+                <img src="${record.divUrl || 'https://picsum.50/50'}" alt="${record.divName}" class="w-6 h-6 object-contain">
+                <span class="text-sm bg-primary/10 text-primary px-2 py-0.5 rounded">${record.divName || '无等级'}</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              ${proHtml}
+            </div>
+            ${subProHtml}
+          `;
+          
+          mainRecordContainer.appendChild(recordCard);
+        });
+      } else {
+        mainRecordContainer.innerHTML = `
+          <div class="flex items-center justify-center py-8 text-gray-custom">
+            <p>暂无${currentTypeFilter !== '全部' ? currentTypeFilter : ''}${currentModeFilter === '1' ? '单排' : 
+              currentModeFilter === '2' ? '双排' : currentModeFilter === '4' ? '四排' : ''}战绩数据</p>
+          </div>
+        `;
+      }
+    }
+    
+    // 显示用户列表，隐藏详情
+    function showUserList() {
+      userDetailSection.classList.add('hidden', 'opacity-0', 'translate-y-4');
+      userListSection.classList.remove('hidden');
+      
+      // 滚动到顶部
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
+    // 显示用户详情，隐藏列表
+    function showUserDetail() {
+      // 添加日志以便调试
+      console.log('显示用户详情页');
+      
+      userListSection.classList.add('hidden');
+      userDetailSection.classList.remove('hidden');
+      
+      // 触发动画
+      setTimeout(() => {
+        userDetailSection.classList.remove('opacity-0', 'translate-y-4');
+      }, 50);
+      
+      // 滚动到顶部
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
+    // 显示加载状态
+    function showLoading() {
+      loading.classList.remove('hidden');
+    }
+    
+    // 隐藏加载状态
+    function hideLoading() {
+      loading.classList.add('hidden');
+    }
+    
+    // 显示错误信息
+    function showError(message) {
+      errorText.textContent = message;
+      errorMessage.classList.remove('hidden');
+      
+      // 3秒后自动隐藏
+      setTimeout(() => {
+        hideError();
+      }, 3000);
+    }
+    
+    // 隐藏错误信息
+    function hideError() {
+      errorMessage.classList.add('hidden');
+    }
+    
+    // 初始化页面
+    function init() {
+      initEventListeners();
+      // 添加初始化日志
+      console.log('页面初始化完成，事件监听已绑定');
+    }
+    
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
+    
