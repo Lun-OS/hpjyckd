@@ -11,6 +11,23 @@
   
   <!-- 配置Tailwind自定义主题 -->
   <script>
+    // 全局配置对象，包含API访问所需的凭证
+    const API_CONFIG = {
+      userId: '1001502719',
+      token: 'HCYGbgJM'
+    };
+    
+    // 在线状态映射表
+    const STATUS_MAP = {
+      0: { text: '离线', class: 'bg-online-offline/20 text-online-offline', badgeClass: 'bg-online-offline' },
+      1: { text: '游戏在线', class: 'bg-online-game/20 text-online-game', badgeClass: 'bg-online-game' },
+      2: { text: '不显示', class: 'bg-gray-700/50 text-gray-custom', badgeClass: 'bg-gray-700' },
+      3: { text: '营地在线', class: 'bg-online-camp/20 text-online-camp', badgeClass: 'bg-online-camp' },
+      4: { text: '游戏中', class: 'bg-online-ingame/20 text-online-ingame', badgeClass: 'bg-online-ingame' },
+      5: { text: '找队友', class: 'bg-online-team/20 text-online-team', badgeClass: 'bg-online-team' },
+      6: { text: '等DD', class: 'bg-online-waiting/20 text-online-waiting', badgeClass: 'bg-online-waiting' }
+    };
+
     tailwind.config = {
       theme: {
         extend: {
@@ -25,7 +42,13 @@
             danger: '#FF4D4F',
             'honor-gold': '#FFD700',
             'honor-purple': '#9370DB',
-            'honor-red': '#FF4500'
+            'honor-red': '#FF4500',
+            'online-offline': '#86909C',
+            'online-camp': '#165DFF',
+            'online-game': '#52C41A',
+            'online-ingame': '#FAAD14',
+            'online-team': '#9370DB',
+            'online-waiting': '#FF4D4F'
           },
           fontFamily: {
             inter: ['Inter', 'sans-serif'],
@@ -161,11 +184,15 @@
     <!-- 用户详情区域 -->
     <section id="user-detail-section" class="mb-8 hidden transition-all duration-500 opacity-0 transform translate-y-4">
       <div class="flex items-center gap-2 mb-4">
-        <button id="back-button" class="p-2 rounded-full hover:bg-dark-light transition-colors">
-          <i class="fa fa-arrow-left"></i>
-        </button>
-        <h2 class="text-lg md:text-xl font-semibold">用户详情</h2>
-      </div>
+          <button id="back-button" class="p-2 rounded-full hover:bg-dark-light transition-colors">
+            <i class="fa fa-arrow-left"></i>
+          </button>
+          <h2 class="text-lg md:text-xl font-semibold">用户详情</h2>
+          <button id="refresh-button" class="ml-auto bg-primary hover:bg-primary/90 text-white px-3 py-1 rounded-full text-sm flex items-center gap-1 transition-all">
+            <i class="fa fa-refresh"></i>
+            <span>刷新</span>
+          </button>
+        </div>
       
       <!-- 用户基本信息 -->
       <div class="bg-dark-light rounded-xl p-4 md:p-6 mb-6 card-shadow">
@@ -173,10 +200,11 @@
           <!-- 头像区域 -->
           <div class="flex flex-col items-center">
             <div class="relative mb-3">
-              <img id="user-avatar" src="" alt="用户头像" class="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover">
-              <div class="avatar-frame"></div>
-            </div>
-            <span id="user-sex" class="text-sm px-3 py-1 rounded-full bg-primary/10 text-primary"></span>
+                <img id="user-avatar" src="" alt="用户头像" class="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover">
+                <div class="avatar-frame"></div>
+                <div id="user-status-badge" class="absolute bottom-0 right-0 w-6 h-6 rounded-full border-2 border-dark-light flex items-center justify-center"></div>
+              </div>
+            <!-- 性别显示移至基本信息区域 -->
           </div>
           
           <!-- 基本信息 -->
@@ -184,6 +212,11 @@
             <div class="flex flex-col md:flex-row md:items-end gap-2 mb-3">
               <h3 id="user-roleName" class="text-2xl md:text-3xl font-bold"></h3>
               <span id="user-roleDesc" class="bg-gray-700/50 text-gray-300 text-sm px-2 py-1 rounded"></span>
+            </div>
+            
+            <div class="flex items-center gap-2 mb-1">
+              <span id="user-sex" class="text-sm px-3 py-1 rounded-full bg-primary/10 text-primary"></span>
+              <span id="user-status" class="text-sm px-3 py-1 rounded-full bg-gray-700/50 text-gray-custom"></span>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -495,6 +528,7 @@
     // 全局变量
     let currentKeyword = '';
     let currentRoleId = '';
+    let currentUserPreview = null; // 当前预览的用户信息
     let allMainRecords = []; // 存储所有主要战绩数据
     let currentModeFilter = '4'; // 默认显示四排
     let currentTypeFilter = '经典模式'; // 默认显示经典模式
@@ -612,8 +646,8 @@
       formData.append('type', 'user');
       formData.append('keyword', keyword);
       formData.append('gameId', '20004');
-      formData.append('userId', '1001502719');
-      formData.append('token', 'YacTA5wn');
+      formData.append('userId', API_CONFIG.userId);
+      formData.append('token', API_CONFIG.token);
       formData.append('size', '20');
       formData.append('page', '1');
       
@@ -687,6 +721,7 @@
           // 添加日志以便调试
           console.log('用户卡片被点击，角色ID:', user.roleId);
           currentRoleId = user.roleId;
+          currentUserPreview = user;
           getUserDetail(user.roleId, user);
         });
         
@@ -707,8 +742,8 @@
       formData.append('gameId', '20004');
       formData.append('roleId', roleId);
       formData.append('count', '5');
-      formData.append('userId', '1001502719');
-      formData.append('token', 'YacTA5wn');
+      formData.append('userId', API_CONFIG.userId);
+      formData.append('token', API_CONFIG.token);
       
       // 发送请求
       fetch('https://formal.api.gp.qq.com/game/rolecard3', {
@@ -740,10 +775,37 @@
       })
       .catch(error => {
         hideLoading();
-        console.error('获取用户详情出错:', error);
+        console.error('获取用户详情失败:', error);
         showError('获取用户详情失败，请稍后重试');
       });
     }
+    
+    // 刷新按钮点击事件
+    document.addEventListener('DOMContentLoaded', function() {
+      const refreshButton = document.getElementById('refresh-button');
+      if (refreshButton) {
+        refreshButton.addEventListener('click', function() {
+          // 添加刷新动画效果
+          const iconElement = this.querySelector('i');
+          iconElement.classList.add('fa-spin');
+          
+          // 如果有当前角色ID，则重新获取用户详情
+          if (currentRoleId && currentUserPreview) {
+            console.log('刷新用户信息，角色ID:', currentRoleId);
+            showLoading();
+            // 重新获取用户详情
+            getUserDetail(currentRoleId, currentUserPreview);
+          }
+          
+          // 2秒后移除旋转动画（确保动画效果完整显示）
+          setTimeout(() => {
+            if (iconElement) {
+              iconElement.classList.remove('fa-spin');
+            }
+          }, 2000);
+        });
+      }
+    });
     
     // 获取成就标志信息
     function getHonorInfo(roleId) {
@@ -768,10 +830,10 @@
       formData.append('cChannelId', '2');
       formData.append('cDeviceMem', '127991');
       formData.append('roleId', roleId);
-      formData.append('userId', '1001502719');
+      formData.append('userId', API_CONFIG.userId);
       formData.append('cDeviceRom', 'emulator');
       formData.append('cDeviceMac', '');
-      formData.append('token', 'YacTA5wn');
+      formData.append('token', API_CONFIG.token);
       formData.append('cCurrentGameId', '20004');
       formData.append('cRand', new Date().getTime());
       formData.append('cDeviceScreenWidth', '1440');
@@ -861,6 +923,16 @@
       document.getElementById('user-level').textContent = `等级: ${roleCard.level || '未知'}`;
       document.getElementById('user-honorLevel').textContent = `荣誉等级: ${roleCard.honorLevel || '未知'}`;
       document.getElementById('user-serverName').textContent = roleCard.areaName || '未知区域';
+      
+      // 显示在线状态 - 使用gameOnline参数
+      const statusCode = roleCard.gameOnline || 0;
+      const statusInfo = STATUS_MAP[statusCode] || STATUS_MAP[0];
+      const statusElement = document.getElementById('user-status');
+      const statusBadge = document.getElementById('user-status-badge');
+      
+      statusElement.textContent = statusInfo.text;
+      statusElement.className = `text-sm px-3 py-1 rounded-full ${statusInfo.class}`;
+      statusBadge.className = `absolute bottom-0 right-0 w-6 h-6 rounded-full border-2 border-dark-light ${statusInfo.badgeClass}`;
       
       // 性别显示
       const sexElement = document.getElementById('user-sex');
