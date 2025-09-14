@@ -1007,9 +1007,9 @@
       const copyLinkContainer = document.getElementById('copy-link-container');
       if (copyLinkContainer) {
         // 构建跳转链接：域名?id=营地id
-        const userId = roleCard.userId || userPreview.userId || '';
+        const roleId = roleCard.roleId || userPreview.roleId || '';
         const originalUrl = new URL(window.location.href);
-        originalUrl.searchParams.set('id', userId);
+        originalUrl.searchParams.set('id', roleId);
         const jumpLink = originalUrl.toString();
         // 创建复制链接按钮
         copyLinkContainer.innerHTML = `
