@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>开源免费-倒卖死妈</title>
-  <!-- 引入Tailwind CSS -->
+  <!-- 引入Tailwind CSS (注意：cdn.tailwindcss.com仅用于开发环境，生产环境应按照官方文档安装Tailwind CSS) -->
+  <!-- 生产环境安装指南: https://tailwindcss.com/docs/installation -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- 引入Font Awesome -->
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
@@ -75,6 +76,9 @@
       .animate-float {
         animation: float 3s ease-in-out infinite;
       }
+      .animate-scale-pulse {
+        animation: scalePulse 2s ease-in-out infinite;
+      }
       .scrollbar-hide::-webkit-scrollbar {
         display: none;
       }
@@ -104,6 +108,12 @@
       0% { transform: translateY(0px); }
       50% { transform: translateY(-10px); }
       100% { transform: translateY(0px); }
+    }
+    
+    @keyframes scalePulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
     }
   </style>
 </head>
@@ -251,6 +261,8 @@
                 <i class="fa fa-map-marker text-success"></i>
                 <span id="user-areaName" class="text-sm"></span>
               </div>
+              <!-- 复制链接按钮容器 -->
+              <div id="copy-link-container"></div>
             </div>
           </div>
         </div>
@@ -260,16 +272,14 @@
       <div class="bg-dark-light rounded-xl p-4 md:p-6 mb-6 card-shadow">
         <h3 class="text-lg font-semibold mb-4 flex items-center">
           <i class="fa fa-calendar-check-o text-primary mr-2"></i>
-          当前赛季
+          段位信息
         </h3>
         <div class="flex flex-col md:flex-row md:items-center gap-4">
           <!-- 赛季图标 -->
-          <!-- <div class="flex items-center gap-4">
-            <img id="season-icon" src="" alt="赛季图标" class="w-12 h-12 rounded-lg">
-             -->
+          <div class="flex items-center gap-4">
             <!-- 段位图标和名称 -->
             <div class="flex items-center gap-3">
-              <img id="rank-icon" src="" alt="段位图标" class="w-14 h-14 object-contain">
+              <img id="rank-icon" src="" alt="段位图标" class="w-28 h-28 object-contain animate-scale-pulse">
               <div>
                 <p id="rank-name" class="font-semibold text-lg"></p>
                 <p id="season-name" class="text-sm text-gray-custom"></p>
@@ -277,10 +287,10 @@
             </div>
           </div>
           
-          <!-- 赛季进度 -->
+          <!-- 段位进度 -->
           <div class="flex-grow">
             <div class="flex justify-between mb-1">
-              <p class="text-sm">赛季进度</p>
+              <p class="text-sm">段位进度</p>
               <p class="text-sm font-medium">
                 <span id="season-current-score"></span> / <span id="season-levelup-score"></span>
               </p>
@@ -297,10 +307,21 @@
       
       <!-- 战绩数据 -->
       <div class="bg-dark-light rounded-xl p-4 md:p-6 mb-6 card-shadow">
-        <h3 class="text-lg font-semibold mb-4 flex items-center">
-          <i class="fa fa-bar-chart text-primary mr-2"></i>
-          游戏战绩
-        </h3>
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold flex items-center mb-2 md:mb-0">
+            <i class="fa fa-bar-chart text-primary mr-2"></i>
+            游戏战绩
+          </h3>
+          
+          <!-- 赛季选择器 -->
+          <div class="flex items-center gap-2">
+            <label class="text-sm text-gray-custom">赛季:</label>
+            <select id="season-selector" class="bg-dark border border-gray-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all min-w-[120px]">
+              <option value="">当前赛季</option>
+              <!-- 历史赛季选项将通过JavaScript动态生成 -->
+            </select>
+          </div>
+        </div>
         
         <!-- 战绩类型标签页 -->
         <div class="border-b border-gray-700 mb-4">
@@ -309,7 +330,7 @@
               主要战绩
             </button>
             <button class="record-tab whitespace-nowrap px-4 py-2 text-sm font-medium text-gray-custom hover:text-gray-300" data-tab="escape">
-              逃生战绩
+              地铁战绩
             </button>
             <button class="record-tab whitespace-nowrap px-4 py-2 text-sm font-medium text-gray-custom hover:text-gray-300" data-tab="vsteam">
               团竞战绩
@@ -433,18 +454,18 @@
         </div>
       </div>
       
-      <!-- 成就标志区域 -->
-      <div class="bg-dark-light rounded-xl p-4 md:p-6 mb-6 card-shadow">
+      <!-- 成就标志区域 (仅当前赛季显示) -->
+      <div id="achievement-section" class="bg-dark-light rounded-xl p-4 md:p-6 mb-6 card-shadow">
         <h3 class="text-lg font-semibold mb-6 flex items-center">
           <i class="fa fa-trophy text-honor-gold mr-2"></i>
-          成就标志
+          成就标志 <span class="text-sm text-gray-custom ml-2">(仅当前赛季)</span>
         </h3>
         
         <!-- 最高段位 -->
         <div class="mb-8">
           <p class="text-sm text-gray-custom mb-3">最高段位记录</p>
           <div class="flex flex-col md:flex-row md:items-center gap-4 bg-dark rounded-xl p-4 honor-glow">
-            <img id="highest-div-icon" src="" alt="最高段位图标" class="w-16 h-16 md:w-20 md:h-20 object-contain">
+            <img id="highest-div-icon" src="" alt="最高段位图标" class="w-16 h-16 md:w-20 md:h-20 object-contain animate-scale-pulse">
             <div>
               <p id="highest-div-name" class="text-xl font-bold text-honor-gold"></p>
               <p class="text-sm text-gray-custom">段位阶级: <span id="highest-div-class" class="text-white"></span></p>
@@ -460,7 +481,7 @@
             <!-- 王牌印记 -->
             <div class="bg-dark rounded-xl p-4 text-center hover:scale-105 transition-transform">
               <div class="inline-flex items-center justify-center w-16 h-16 mb-2 rounded-full bg-honor-gold/10">
-                <img id="wangpai-icon" src="" alt="王牌印记图标" class="w-10 h-10 object-contain">
+                <img id="wangpai-icon" src="" alt="王牌印记图标" class="w-10 h-10 object-contain animate-scale-pulse">
               </div>
               <p id="wangpai-name" class="font-medium text-honor-gold"></p>
               <p id="wangpai-level-name" class="text-sm text-gray-custom mt-1"></p>
@@ -469,7 +490,7 @@
             <!-- 卓越印记 -->
             <div class="bg-dark rounded-xl p-4 text-center hover:scale-105 transition-transform">
               <div class="inline-flex items-center justify-center w-16 h-16 mb-2 rounded-full bg-primary/10">
-                <img id="zywp-icon" src="" alt="卓越印记图标" class="w-10 h-10 object-contain">
+                <img id="zywp-icon" src="" alt="卓越印记图标" class="w-10 h-10 object-contain animate-scale-pulse">
               </div>
               <p id="zywp-name" class="font-medium text-primary"></p>
               <p id="zywp-times" class="text-sm text-gray-custom mt-1">
@@ -480,7 +501,7 @@
             <!-- 传奇印记 -->
             <div class="bg-dark rounded-xl p-4 text-center hover:scale-105 transition-transform">
               <div class="inline-flex items-center justify-center w-16 h-16 mb-2 rounded-full bg-honor-purple/10">
-                <img id="cqwp-icon" src="" alt="传奇印记图标" class="w-10 h-10 object-contain">
+                <img id="cqwp-icon" src="" alt="传奇印记图标" class="w-10 h-10 object-contain animate-scale-pulse">
               </div>
               <p id="cqwp-name" class="font-medium text-honor-purple"></p>
               <p id="cqwp-times" class="text-sm text-gray-custom mt-1">
@@ -532,6 +553,8 @@
     let allMainRecords = []; // 存储所有主要战绩数据
     let currentModeFilter = '4'; // 默认显示四排
     let currentTypeFilter = '经典模式'; // 默认显示经典模式
+    let availableSeasons = []; // 存储可用的赛季数据
+    let currentSeasonId = null; // 当前选择的赛季ID
     
     // DOM元素
     const searchInput = document.getElementById('search-input');
@@ -549,6 +572,7 @@
     const recordContents = document.querySelectorAll('.record-content');
     const modeFilters = document.querySelectorAll('.mode-filter');
     const typeFilters = document.querySelectorAll('.type-filter');
+    const seasonSelector = document.getElementById('season-selector');
     
     // 初始化事件监听
     function initEventListeners() {
@@ -633,6 +657,47 @@
           filterMainRecords();
         });
       });
+      
+      // 赛季选择器事件
+      if (seasonSelector) {
+        seasonSelector.addEventListener('change', (e) => {
+          currentSeasonId = e.target.value || null;
+          
+          // 如果当前有用户详情，重新加载战绩数据
+          if (currentRoleId && currentUserPreview) {
+            console.log('切换赛季，重新获取用户详情，赛季ID:', currentSeasonId);
+            showLoading();
+            getUserDetail(currentRoleId, currentUserPreview);
+          }
+        });
+      }
+    }
+    
+    // 获取可用赛季列表 - 现在通过getUserDetail函数从rolecard3接口响应中获取
+    function getAvailableSeasons() {
+      // 这个函数现在只是占位，赛季数据将在getUserDetail函数中从接口响应获取
+      // 保持函数存在是为了不破坏可能的调用依赖
+    }
+    
+    // 填充赛季选择器选项
+    function populateSeasonSelector() {
+      const seasonSelector = document.getElementById('season-selector');
+      if (!seasonSelector || !availableSeasons.length) return;
+      
+      // 清空现有选项（保留默认的当前赛季选项）
+      while (seasonSelector.children.length > 1) {
+        seasonSelector.removeChild(seasonSelector.lastChild);
+      }
+      
+      // 添加历史赛季选项（按ID倒序，最新的在前面）
+      availableSeasons
+        .sort((a, b) => b.id - a.id)
+        .forEach(season => {
+          const option = document.createElement('option');
+          option.value = season.id;
+          option.textContent = season.name;
+          seasonSelector.appendChild(option);
+        });
     }
     
     // 搜索用户
@@ -700,7 +765,7 @@
         userCard.className = 'bg-dark-light rounded-xl p-4 flex items-center gap-4 hover:bg-dark-light/80 transition-all cursor-pointer transform hover:translate-x-1';
         userCard.innerHTML = `
           <div class="relative">
-            <img src="${user.avatar || 'https://picsum.photos/100/100'}" alt="${user.nickname}的头像" class="w-14 h-14 rounded-full object-cover">
+            <img src="${user.avatar || '404.png'}" alt="${user.nickname}的头像" class="w-14 h-14 rounded-full object-cover">
             <div class="avatar-frame"></div>
           </div>
           <div class="flex-grow">
@@ -745,6 +810,12 @@
       formData.append('userId', API_CONFIG.userId);
       formData.append('token', API_CONFIG.token);
       
+      // 如果选择了历史赛季，添加赛季参数
+      if (currentSeasonId) {
+        formData.append('seasonId', currentSeasonId);
+        console.log('请求历史赛季数据，赛季ID:', currentSeasonId);
+      }
+      
       // 发送请求
       fetch('https://formal.api.gp.qq.com/game/rolecard3', {
         method: 'POST',
@@ -763,10 +834,19 @@
       })
       .then(data => {
         if (data.result === 0 && data.data && data.data.roleCard) {
+          // 从接口响应中提取赛季数据
+          if (data.data.roleCard.seasons && data.data.roleCard.seasons.length > 0) {
+            availableSeasons = data.data.roleCard.seasons;
+            populateSeasonSelector();
+            console.log('成功从接口响应中获取赛季数据:', availableSeasons);
+          } else {
+            console.warn('响应中没有赛季数据');
+          }
+          
           displayUserDetail(data.data.roleCard, userPreview);
           // 先显示详情页，再获取成就信息
           showUserDetail();
-          // 获取并显示成就信息
+          // 获取并显示成就信息 (在任何赛季都显示成就信息)
           getHonorInfo(roleId);
         } else {
           hideLoading();
@@ -880,40 +960,90 @@
     // 显示成就标志信息
     function displayHonorInfo(honorData) {
       // 最高段位信息
-      document.getElementById('highest-div-icon').src = honorData.highestDivUrl || 'https://picsum.photos/200/200';
+      document.getElementById('highest-div-icon').src = honorData.highestDivUrl || 'https://imgcdn.gp.qq.com/images/rank/RankIntegralLevel_s_01_01.png';
       document.getElementById('highest-div-name').textContent = honorData.highestDivName || '未获取';
       document.getElementById('highest-div-class').textContent = honorData.highestDivClass || '未知';
       document.getElementById('highest-div-times').textContent = honorData.highestDivTimes || '0';
       
       // 王牌印记
-      document.getElementById('wangpai-icon').src = honorData.wangpaiIcon || 'https://picsum.photos/100/100';
+      document.getElementById('wangpai-icon').src = honorData.wangpaiIcon || 'https://imgcdn.gp.qq.com/images/BattleAchievements/yinji/0.png    ';
       document.getElementById('wangpai-name').textContent = honorData.wangpaiName || '王牌印记';
       document.getElementById('wangpai-level-name').textContent = honorData.wangpaiLevelName || '0次';
       
       // 卓越印记
-      document.getElementById('zywp-icon').src = honorData.zywpIcon || 'https://picsum.photos/100/100';
+      document.getElementById('zywp-icon').src = honorData.zywpIcon || 'https://imgcdn.gp.qq.com/images/BattleAchievements/yinji/1001_t0.png';
       document.getElementById('zywp-name').textContent = honorData.zywpName || '卓越印记';
       document.getElementById('zywp-count').textContent = honorData.zywpTimes || '0';
       
       // 传奇印记
-      document.getElementById('cqwp-icon').src = honorData.cqwpIcon || 'https://picsum.photos/100/100';
+      document.getElementById('cqwp-icon').src = honorData.cqwpIcon || 'https://imgcdn.gp.qq.com/images/BattleAchievements/yinji/2001_t0.png';
       document.getElementById('cqwp-name').textContent = honorData.cqwpName || '传奇印记';
       document.getElementById('cqwp-count').textContent = honorData.cqwpTimes || '0';
       
       // 绝世印记
-      document.getElementById('jswp-icon').src = honorData.jswpIcon || 'https://picsum.photos/100/100';
+      document.getElementById('jswp-icon').src = honorData.jswpIcon || 'https://imgcdn.gp.qq.com/images/BattleAchievements/yinji/3001_t0.png';
       document.getElementById('jswp-name').textContent = honorData.jswpName || '绝世印记';
       document.getElementById('jswp-count').textContent = honorData.jswpTimes || '0';
       
       // 点赞数
-      document.getElementById('like-icon').src = honorData.likeIcon || 'https://picsum.photos/100/100';
+      document.getElementById('like-icon').src = honorData.likeIcon || 'https://imgcdn.gp.qq.com/images/BattleAchievements/yinji/like.png';
       document.getElementById('like-times').textContent = honorData.likeTimes || '0';
     }
     
     // 显示用户详情
     function displayUserDetail(roleCard, userPreview) {
+      // 更新currentUserPreview对象中的userId（从接口数据中获取）
+      if (roleCard && roleCard.userId) {
+        console.log('从接口获取到userId:', roleCard.userId);
+        currentUserPreview = {
+          ...currentUserPreview,
+          userId: roleCard.userId
+        };
+      } else {
+        console.log('接口数据中未包含userId');
+      }
+
+      // 创建并添加复制链接按钮
+      const copyLinkContainer = document.getElementById('copy-link-container');
+      if (copyLinkContainer) {
+        // 构建跳转链接：域名?id=营地id
+        const currentDomain = window.location.origin;
+        const userId = roleCard.userId || userPreview.userId || '';
+        const jumpLink = `${currentDomain}?id=${userId}`;
+        
+        // 创建复制链接按钮
+        copyLinkContainer.innerHTML = `
+          <button id="copy-link-btn" class="flex items-center gap-1.5 bg-warning/10 hover:bg-warning/20 text-warning px-3 py-1.5 rounded-lg transition-colors animate-float">
+            <i class="fa fa-link"></i>
+            <span class="text-sm">复制主页链接</span>
+          </button>
+        `;
+        
+        // 绑定点击事件
+        const copyLinkBtn = document.getElementById('copy-link-btn');
+        if (copyLinkBtn) {
+          copyLinkBtn.addEventListener('click', function() {
+            // 复制链接到剪贴板
+            navigator.clipboard.writeText(jumpLink)
+              .then(() => {
+                // 显示复制成功提示
+                const originalText = copyLinkBtn.innerHTML;
+                copyLinkBtn.innerHTML = '<i class="fa fa-check"></i><span class="text-sm">已复制</span>';
+                
+                // 2秒后恢复原文本
+                setTimeout(() => {
+                  copyLinkBtn.innerHTML = originalText;
+                }, 2000);
+              })
+              .catch(err => {
+                console.error('复制失败:', err);
+                showError('复制链接失败，请手动复制');
+              });
+          });
+        }
+      }
       // 基本信息
-      document.getElementById('user-avatar').src = userPreview.avatar || 'https://picsum.photos/200/200';
+      document.getElementById('user-avatar').src = userPreview.avatar || '404.png';
       document.getElementById('user-roleName').textContent = roleCard.roleName || '未知角色名';
       document.getElementById('user-roleDesc').textContent = roleCard.roleJob || userPreview.roleDesc || '未知等级';
       document.getElementById('user-nickname').textContent = userPreview.nickname || '未知昵称';
@@ -947,15 +1077,17 @@
         sexElement.className = 'text-sm px-3 py-1 rounded-full bg-gray-500/10 text-gray-400';
       }
       
-      // 赛季信息
-      // document.getElementById('season-icon').src = roleCard.seasonIcon || 'https://picsum.photos/100/100';
-      // document.getElementById('season-name').textContent = roleCard.seasonName || '未知赛季';
+      // 显示当前查看的赛季信息
+      const selectedSeasonName = currentSeasonId ? 
+        (availableSeasons.find(s => s.id == currentSeasonId)?.name || `赛季${currentSeasonId}`) : 
+        '当前赛季';
+      document.getElementById('season-name').textContent = selectedSeasonName;
       
       // 段位信息 - 使用divUrl参数显示段位图标
       if (roleCard.mainRecord && roleCard.mainRecord.length > 0) {
         const firstRecord = roleCard.mainRecord[0];
         // 显示段位图标
-        document.getElementById('rank-icon').src = firstRecord.divUrl || 'https://picsum.photos/100/100';
+        document.getElementById('rank-icon').src = firstRecord.divUrl || 'https://imgcdn.gp.qq.com/images/rank/RankIntegralLevel_s_01_01.png';
         document.getElementById('rank-name').textContent = firstRecord.divName || '未设置段位';
         
         // 赛季进度
@@ -973,7 +1105,7 @@
         scoreRemaining.textContent = remaining > 0 ? remaining : 0;
       } else {
         // 无战绩数据时的默认显示
-        document.getElementById('rank-icon').src = 'https://picsum.photos/100/100';
+        document.getElementById('rank-icon').src = 'https://imgcdn.gp.qq.com/images/rank/RankIntegralLevel_s_01_01.png';
         document.getElementById('rank-name').textContent = '暂无段位';
         document.getElementById('season-progress').style.width = '0%';
         document.getElementById('season-current-score').textContent = '0';
@@ -1031,6 +1163,12 @@
         document.getElementById('vsteam-current-exp').textContent = '0';
         document.getElementById('vsteam-levelup-exp').textContent = '0';
         document.getElementById('vsteam-progress').style.width = '0%';
+      }
+      
+      // 显示成就标志区域（在任何赛季都显示）
+      const achievementSection = document.getElementById('achievement-section');
+      if (achievementSection) {
+        achievementSection.style.display = 'block';
       }
     }
     
@@ -1100,7 +1238,7 @@
             <div class="flex justify-between items-center mb-4">
               <h4 class="font-semibold">${record.title} <span class="text-xs text-gray-custom ml-2">${record.class}</span></h4>
               <div class="flex items-center gap-2">
-                <img src="${record.divUrl || 'https://picsum.50/50'}" alt="${record.divName}" class="w-6 h-6 object-contain">
+                <img src="${record.divUrl || 'https://imgcdn.gp.qq.com/images/rank/RankIntegralLevel_s_01_01.png'}" alt="${record.divName}" class="w-6 h-6 object-contain">
                 <span class="text-sm bg-primary/10 text-primary px-2 py-0.5 rounded">${record.divName || '无等级'}</span>
               </div>
             </div>
@@ -1177,8 +1315,141 @@
     // 初始化页面
     function init() {
       initEventListeners();
+      // 获取可用的赛季列表
+      getAvailableSeasons();
       // 添加初始化日志
       console.log('页面初始化完成，事件监听已绑定');
+      
+      // 解析URL参数并处理
+      handleUrlParams();
+    }
+    
+    // 解析URL参数并处理
+    function handleUrlParams() {
+      const urlParams = new URLSearchParams(window.location.search);
+      let hasToken = false;
+      
+      // 检查是否有token参数
+      if (urlParams.has('token')) {
+        const tokenParam = urlParams.get('token');
+        const tokenParts = tokenParam.split('-');
+        if (tokenParts.length === 2) {
+          // 更新API配置
+          API_CONFIG.userId = tokenParts[0];
+          API_CONFIG.token = tokenParts[1];
+          hasToken = true;
+          console.log('已使用URL中的token参数更新API配置');
+        } else {
+          console.warn('token参数格式不正确，应为userId-token');
+        }
+      }
+      
+      // 检查是否有id参数
+      if (urlParams.has('id')) {
+        const roleId = urlParams.get('id');
+        if (roleId) {
+          // 创建一个基本的用户预览对象
+          const userPreview = {
+            roleId: roleId,
+            nickname: '未知用户',
+            avatar: '404.png',
+            roleName: '加载中...',
+            roleDesc: '未知等级',
+            userId: '未知'
+          };
+          
+          currentRoleId = roleId;
+          currentUserPreview = userPreview;
+          console.log('检测到id参数，正在获取用户详情，角色ID:', roleId);
+          getUserDetail(roleId, userPreview);
+          
+          // 获取营地编号并搜索补全信息
+          setTimeout(() => {
+            // 检查currentUserPreview是否有效且userId不是'未知'
+            if (currentUserPreview && currentUserPreview.userId && currentUserPreview.userId !== '未知') {
+              console.log('使用营地编号进行搜索补全信息:', currentUserPreview.userId);
+            } else {
+              console.log('用户营地编号仍为未知，使用roleId进行搜索');
+            }
+
+            // 构建表单数据
+            const formData = new FormData();
+            formData.append('type', 'user');
+            // 优先使用有效的userId，如果没有则使用roleId
+            formData.append('keyword', (currentUserPreview && currentUserPreview.userId && currentUserPreview.userId !== '未知') ? currentUserPreview.userId : roleId);
+            formData.append('gameId', '20004');
+            formData.append('userId', API_CONFIG.userId);
+            formData.append('token', API_CONFIG.token);
+            formData.append('size', '20');
+            formData.append('page', '1');
+            
+            // 发送请求
+            fetch('https://formal.api.gp.qq.com/search/getresultbytypev2', {
+              method: 'POST',
+              headers: {
+                'User-Agent': 'okhttp/3.12.1',
+                'Connection': 'Keep-Alive',
+                'Accept-Encoding': 'gzip',
+              },
+              body: new URLSearchParams(formData)
+            })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              return response.json();
+            })
+            .then(data => {
+              if (data.result === 0 && data.data && data.data.user && data.data.user.list && data.data.user.list.length > 0) {
+                console.log('搜索补全成功，获取到用户信息:', data.data.user.list[0]);
+                const searchResult = data.data.user.list[0];
+                
+                // 使用搜索结果补全用户信息
+                currentUserPreview = {
+                  ...currentUserPreview,
+                  nickname: searchResult.nickname || currentUserPreview.nickname,
+                  avatar: searchResult.avatar || currentUserPreview.avatar,
+                  roleName: searchResult.roleName || currentUserPreview.roleName,
+                  roleDesc: searchResult.roleDesc || currentUserPreview.roleDesc,
+                  userId: searchResult.userId || currentUserPreview.userId,
+                  // 注意：displayUserDetail使用的是sex字段，而不是gender
+                  sex: searchResult.sex || searchResult.gender || 0,
+                  // 补全其他可能的字段
+                  server: searchResult.server || '未知服务器',
+                  level: searchResult.level || '0'
+                };
+                
+                // 重新显示用户详情以更新UI
+                if (typeof displayUserDetail === 'function' && currentRoleId && currentUserPreview) {
+                  try {
+                    // 调用原始的getUserDetail函数来获取完整的角色卡片信息
+                    getUserDetail(currentRoleId, currentUserPreview);
+                  } catch (e) {
+                    console.warn('重新获取用户详情时出错:', e);
+                  }
+                }
+              } else {
+                console.log('搜索补全失败，未找到相关用户信息或搜索结果为空');
+              }
+            })
+            .catch(error => {
+              console.error('搜索补全用户信息时出错:', error);
+            });
+          }, 1500); // 1.5秒延迟，确保基本信息已加载
+          
+          return; // 如果有id参数，优先处理id参数
+        }
+      }
+      
+      // 检查是否有key参数
+      if (urlParams.has('key')) {
+        const keyword = urlParams.get('key');
+        if (keyword) {
+          console.log('检测到key参数，正在搜索用户:', keyword);
+          searchInput.value = keyword;
+          searchUsers(keyword);
+        }
+      }
     }
     
     // 页面加载完成后初始化
@@ -1186,4 +1457,3 @@
   </script>
 </body>
 </html>
-    
