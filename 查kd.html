@@ -1007,10 +1007,10 @@
       const copyLinkContainer = document.getElementById('copy-link-container');
       if (copyLinkContainer) {
         // 构建跳转链接：域名?id=营地id
-        const currentDomain = window.location.origin;
         const userId = roleCard.userId || userPreview.userId || '';
-        const jumpLink = `${currentDomain}?id=${userId}`;
-        
+        const originalUrl = new URL(window.location.href);
+        originalUrl.searchParams.set('id', userId);
+        const jumpLink = originalUrl.toString();
         // 创建复制链接按钮
         copyLinkContainer.innerHTML = `
           <button id="copy-link-btn" class="flex items-center gap-1.5 bg-warning/10 hover:bg-warning/20 text-warning px-3 py-1.5 rounded-lg transition-colors animate-float">
